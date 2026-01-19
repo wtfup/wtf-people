@@ -1,25 +1,4 @@
 services:
-  traefik:
-    image: traefik:v3.2
-    command:
-      - --providers.docker=true
-      - --providers.docker.exposedbydefault=false
-      - --entrypoints.web.address=:80
-      - --entrypoints.websecure.address=:443
-      - --certificatesresolvers.letsencrypt.acme.httpchallenge=true
-      - --certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web
-      - --certificatesresolvers.letsencrypt.acme.email=${LETSENCRYPT_EMAIL}
-      - --certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - letsencrypt-data:/letsencrypt
-    restart: unless-stopped
-    networks:
-      - wtf-network
-
   mariadb:
     image: mariadb:10.6
     command:
@@ -71,22 +50,14 @@ services:
     depends_on:
       - backend
       - websocket
+    ports:
+      - "80:8080"
     volumes:
       - sites-data:/home/frappe/frappe-bench/sites
     environment:
       - BACKEND=backend:8000
       - SOCKETIO=websocket:9000
       - FRAPPE_SITE_NAME_HEADER=${SITE_NAME}
-    labels:
-      - traefik.enable=true
-      - traefik.http.routers.wtf-people.rule=Host(`${SITE_NAME}`)
-      - traefik.http.routers.wtf-people.entrypoints=websecure
-      - traefik.http.routers.wtf-people.tls.certresolver=letsencrypt
-      - traefik.http.routers.wtf-people-http.rule=Host(`${SITE_NAME}`)
-      - traefik.http.routers.wtf-people-http.entrypoints=web
-      - traefik.http.routers.wtf-people-http.middlewares=redirect-to-https
-      - traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https
-      - traefik.http.services.wtf-people.loadbalancer.server.port=8080
     restart: unless-stopped
     networks:
       - wtf-network
@@ -139,7 +110,6 @@ services:
       - wtf-network
 
 volumes:
-  letsencrypt-data:
   mariadb-data:
   redis-cache-data:
   redis-queue-data:
