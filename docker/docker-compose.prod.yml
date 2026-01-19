@@ -1,0 +1,153 @@
+version: "3.8"
+
+services:
+  traefik:
+    image: traefik:v2.10
+    command:
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
+      - --certificatesresolvers.letsencrypt.acme.httpchallenge=true
+      - --certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web
+      - --certificatesresolvers.letsencrypt.acme.email=${LETSENCRYPT_EMAIL}
+      - --certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - letsencrypt-data:/letsencrypt
+    restart: unless-stopped
+    networks:
+      - wtf-network
+
+  mariadb:
+    image: mariadb:10.6
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --skip-character-set-client-handshake
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+    volumes:
+      - mariadb-data:/var/lib/mysql
+    restart: unless-stopped
+    networks:
+      - wtf-network
+
+  redis-cache:
+    image: redis:7-alpine
+    volumes:
+      - redis-cache-data:/data
+    restart: unless-stopped
+    networks:
+      - wtf-network
+
+  redis-queue:
+    image: redis:7-alpine
+    volumes:
+      - redis-queue-data:/data
+    restart: unless-stopped
+    networks:
+      - wtf-network
+
+  backend:
+    image: frappe/erpnext:${ERPNEXT_VERSION:-v15}
+    depends_on:
+      - mariadb
+      - redis-cache
+      - redis-queue
+    volumes:
+      - sites-data:/home/frappe/frappe-bench/sites
+      - logs-data:/home/frappe/frappe-bench/logs
+    environment:
+      - FRAPPE_SITE_NAME_HEADER=${SITE_NAME}
+    restart: unless-stopped
+    networks:
+      - wtf-network
+
+  frontend:
+    image: frappe/erpnext:${ERPNEXT_VERSION:-v15}
+    command: nginx-entrypoint.sh
+    depends_on:
+      - backend
+      - websocket
+    volumes:
+      - sites-data:/home/frappe/frappe-bench/sites
+    environment:
+      - BACKEND=backend:8000
+      - SOCKETIO=websocket:9000
+      - FRAPPE_SITE_NAME_HEADER=${SITE_NAME}
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.wtf-people.rule=Host(`${SITE_NAME}`)
+      - traefik.http.routers.wtf-people.entrypoints=websecure
+      - traefik.http.routers.wtf-people.tls.certresolver=letsencrypt
+      - traefik.http.routers.wtf-people-http.rule=Host(`${SITE_NAME}`)
+      - traefik.http.routers.wtf-people-http.entrypoints=web
+      - traefik.http.routers.wtf-people-http.middlewares=redirect-to-https
+      - traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https
+      - traefik.http.services.wtf-people.loadbalancer.server.port=8080
+    restart: unless-stopped
+    networks:
+      - wtf-network
+
+  websocket:
+    image: frappe/erpnext:${ERPNEXT_VERSION:-v15}
+    command: node /home/frappe/frappe-bench/apps/frappe/socketio.js
+    depends_on:
+      - backend
+    volumes:
+      - sites-data:/home/frappe/frappe-bench/sites
+    restart: unless-stopped
+    networks:
+      - wtf-network
+
+  queue-short:
+    image: frappe/erpnext:${ERPNEXT_VERSION:-v15}
+    command: bench worker --queue short,default
+    depends_on:
+      - backend
+    volumes:
+      - sites-data:/home/frappe/frappe-bench/sites
+      - logs-data:/home/frappe/frappe-bench/logs
+    restart: unless-stopped
+    networks:
+      - wtf-network
+
+  queue-long:
+    image: frappe/erpnext:${ERPNEXT_VERSION:-v15}
+    command: bench worker --queue long,default,short
+    depends_on:
+      - backend
+    volumes:
+      - sites-data:/home/frappe/frappe-bench/sites
+      - logs-data:/home/frappe/frappe-bench/logs
+    restart: unless-stopped
+    networks:
+      - wtf-network
+
+  scheduler:
+    image: frappe/erpnext:${ERPNEXT_VERSION:-v15}
+    command: bench schedule
+    depends_on:
+      - backend
+    volumes:
+      - sites-data:/home/frappe/frappe-bench/sites
+      - logs-data:/home/frappe/frappe-bench/logs
+    restart: unless-stopped
+    networks:
+      - wtf-network
+
+volumes:
+  letsencrypt-data:
+  mariadb-data:
+  redis-cache-data:
+  redis-queue-data:
+  sites-data:
+  logs-data:
+
+networks:
+  wtf-network:
+    driver: bridge

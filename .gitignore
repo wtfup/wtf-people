@@ -1,0 +1,33 @@
+# Environment files with secrets
+docker/.env.prod
+.env
+.env.local
+.env.production
+
+# Docker volumes data (if stored locally)
+data/
+volumes/
+
+# Backups
+backups/
+*.sql
+*.sql.gz
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Logs
+*.log
+logs/
