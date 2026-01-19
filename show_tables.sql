@@ -1,0 +1,2 @@
+SHOW TABLES LIKE '%Navbar%';
+SHOW TABLES LIKE '%Website%';
