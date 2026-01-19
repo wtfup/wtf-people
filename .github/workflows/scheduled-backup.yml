@@ -1,0 +1,36 @@
+name: Scheduled Backup
+
+on:
+  schedule:
+    # Runs daily at 2 AM UTC (7:30 AM IST)
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+env:
+  VM_USERNAME: wtfadmin
+
+jobs:
+  backup:
+    name: Daily Backup
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.AZURE_VM_IP }} >> ~/.ssh/known_hosts
+
+      - name: Run backup
+        run: |
+          ssh ${{ env.VM_USERNAME }}@${{ secrets.AZURE_VM_IP }} << 'ENDSSH'
+            cd /home/wtfadmin/wtf-people
+            ./scripts/deploy.sh backup
+          ENDSSH
+
+      - name: Check backup status
+        run: |
+          ssh ${{ env.VM_USERNAME }}@${{ secrets.AZURE_VM_IP }} << 'ENDSSH'
+            ls -lh /home/wtfadmin/backups/ | tail -5
+          ENDSSH

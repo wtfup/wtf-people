@@ -1,0 +1,114 @@
+name: Deploy WTF People HRMS
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Deployment action'
+        required: true
+        default: 'deploy'
+        type: choice
+        options:
+          - deploy
+          - restart
+          - backup
+
+env:
+  AZURE_VM_IP: ${{ secrets.AZURE_VM_IP }}
+  SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+  VM_USERNAME: wtfadmin
+
+jobs:
+  deploy:
+    name: Deploy to Azure VM
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event.inputs.action == 'deploy'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.AZURE_VM_IP }} >> ~/.ssh/known_hosts
+
+      - name: Deploy to VM
+        run: |
+          ssh ${{ env.VM_USERNAME }}@${{ secrets.AZURE_VM_IP }} << 'ENDSSH'
+            cd /home/wtfadmin/wtf-people
+            git pull origin main
+            ./scripts/deploy.sh deploy
+          ENDSSH
+
+      - name: Verify deployment
+        run: |
+          ssh ${{ env.VM_USERNAME }}@${{ secrets.AZURE_VM_IP }} << 'ENDSSH'
+            cd /home/wtfadmin/wtf-people
+            ./scripts/deploy.sh status
+          ENDSSH
+
+  restart:
+    name: Restart Services
+    runs-on: ubuntu-latest
+    if: github.event.inputs.action == 'restart'
+
+    steps:
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.AZURE_VM_IP }} >> ~/.ssh/known_hosts
+
+      - name: Restart services
+        run: |
+          ssh ${{ env.VM_USERNAME }}@${{ secrets.AZURE_VM_IP }} << 'ENDSSH'
+            cd /home/wtfadmin/wtf-people
+            ./scripts/deploy.sh restart
+          ENDSSH
+
+  backup:
+    name: Run Backup
+    runs-on: ubuntu-latest
+    if: github.event.inputs.action == 'backup'
+
+    steps:
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.AZURE_VM_IP }} >> ~/.ssh/known_hosts
+
+      - name: Run backup
+        run: |
+          ssh ${{ env.VM_USERNAME }}@${{ secrets.AZURE_VM_IP }} << 'ENDSSH'
+            cd /home/wtfadmin/wtf-people
+            ./scripts/deploy.sh backup
+          ENDSSH
+
+  scheduled-backup:
+    name: Scheduled Backup
+    runs-on: ubuntu-latest
+    # Runs daily at 2 AM UTC
+    if: github.event.schedule == '0 2 * * *'
+
+    steps:
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.AZURE_VM_IP }} >> ~/.ssh/known_hosts
+
+      - name: Run scheduled backup
+        run: |
+          ssh ${{ env.VM_USERNAME }}@${{ secrets.AZURE_VM_IP }} << 'ENDSSH'
+            cd /home/wtfadmin/wtf-people
+            ./scripts/deploy.sh backup
+          ENDSSH

@@ -4,6 +4,9 @@ docker/.env.prod
 .env.local
 .env.production
 
+# Credentials (NEVER commit)
+CREDENTIALS.md
+
 # Docker volumes data (if stored locally)
 data/
 volumes/
