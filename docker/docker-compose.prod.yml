@@ -31,6 +31,8 @@ services:
 
   backend:
     image: frappe/erpnext:${ERPNEXT_VERSION:-v15}
+    command: >
+      bash -c "pip install -q -e /home/frappe/frappe-bench/apps/hrms && /home/frappe/frappe-bench/env/bin/gunicorn -b 0.0.0.0:8000 --workers 2 --timeout 120 --graceful-timeout 30 frappe.app:application --preload"
     depends_on:
       - mariadb
       - redis-cache
@@ -66,7 +68,8 @@ services:
 
   websocket:
     image: frappe/erpnext:${ERPNEXT_VERSION:-v15}
-    command: node /home/frappe/frappe-bench/apps/frappe/socketio.js
+    command: >
+      bash -c "pip install -q -e /home/frappe/frappe-bench/apps/hrms && node /home/frappe/frappe-bench/apps/frappe/socketio.js"
     depends_on:
       - backend
     volumes:
@@ -78,7 +81,8 @@ services:
 
   queue-short:
     image: frappe/erpnext:${ERPNEXT_VERSION:-v15}
-    command: bench worker --queue short,default
+    command: >
+      bash -c "pip install -q -e /home/frappe/frappe-bench/apps/hrms && bench worker --queue short,default"
     depends_on:
       - backend
     volumes:
@@ -91,7 +95,8 @@ services:
 
   queue-long:
     image: frappe/erpnext:${ERPNEXT_VERSION:-v15}
-    command: bench worker --queue long,default,short
+    command: >
+      bash -c "pip install -q -e /home/frappe/frappe-bench/apps/hrms && bench worker --queue long,default,short"
     depends_on:
       - backend
     volumes:
@@ -104,7 +109,8 @@ services:
 
   scheduler:
     image: frappe/erpnext:${ERPNEXT_VERSION:-v15}
-    command: bench schedule
+    command: >
+      bash -c "pip install -q -e /home/frappe/frappe-bench/apps/hrms && bench schedule"
     depends_on:
       - backend
     volumes:
