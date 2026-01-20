@@ -32,7 +32,7 @@ services:
   backend:
     image: frappe/erpnext:${ERPNEXT_VERSION:-v15}
     command: >
-      bash -c "pip install -q -e /home/frappe/frappe-bench/apps/hrms && /home/frappe/frappe-bench/env/bin/gunicorn -b 0.0.0.0:8000 --workers 2 --timeout 120 --graceful-timeout 30 frappe.app:application --preload"
+      bash -c "echo '/home/frappe/frappe-bench/apps/hrms' > /home/frappe/frappe-bench/env/lib/python3.11/site-packages/hrms.pth && cd /home/frappe/frappe-bench/sites && /home/frappe/frappe-bench/env/bin/gunicorn -b 0.0.0.0:8000 --workers 2 --timeout 120 --graceful-timeout 30 --chdir /home/frappe/frappe-bench/sites frappe.app:application --preload"
     depends_on:
       - mariadb
       - redis-cache
@@ -43,6 +43,7 @@ services:
       - apps-data:/home/frappe/frappe-bench/apps
     environment:
       - FRAPPE_SITE_NAME_HEADER=${SITE_NAME}
+      - SITES_PATH=/home/frappe/frappe-bench/sites
     restart: unless-stopped
     networks:
       - wtf-network
@@ -69,7 +70,7 @@ services:
   websocket:
     image: frappe/erpnext:${ERPNEXT_VERSION:-v15}
     command: >
-      bash -c "pip install -q -e /home/frappe/frappe-bench/apps/hrms && node /home/frappe/frappe-bench/apps/frappe/socketio.js"
+      bash -c "echo '/home/frappe/frappe-bench/apps/hrms' > /home/frappe/frappe-bench/env/lib/python3.11/site-packages/hrms.pth && node /home/frappe/frappe-bench/apps/frappe/socketio.js"
     depends_on:
       - backend
     volumes:
@@ -82,7 +83,7 @@ services:
   queue-short:
     image: frappe/erpnext:${ERPNEXT_VERSION:-v15}
     command: >
-      bash -c "pip install -q -e /home/frappe/frappe-bench/apps/hrms && bench worker --queue short,default"
+      bash -c "echo '/home/frappe/frappe-bench/apps/hrms' > /home/frappe/frappe-bench/env/lib/python3.11/site-packages/hrms.pth && bench worker --queue short,default"
     depends_on:
       - backend
     volumes:
@@ -96,7 +97,7 @@ services:
   queue-long:
     image: frappe/erpnext:${ERPNEXT_VERSION:-v15}
     command: >
-      bash -c "pip install -q -e /home/frappe/frappe-bench/apps/hrms && bench worker --queue long,default,short"
+      bash -c "echo '/home/frappe/frappe-bench/apps/hrms' > /home/frappe/frappe-bench/env/lib/python3.11/site-packages/hrms.pth && bench worker --queue long,default,short"
     depends_on:
       - backend
     volumes:
@@ -110,7 +111,7 @@ services:
   scheduler:
     image: frappe/erpnext:${ERPNEXT_VERSION:-v15}
     command: >
-      bash -c "pip install -q -e /home/frappe/frappe-bench/apps/hrms && bench schedule"
+      bash -c "echo '/home/frappe/frappe-bench/apps/hrms' > /home/frappe/frappe-bench/env/lib/python3.11/site-packages/hrms.pth && bench schedule"
     depends_on:
       - backend
     volumes:
